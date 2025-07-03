@@ -54,6 +54,8 @@ def apply_rotary_emb(
     #
     # Please refer to slide 22 in https://phontron.com/class/anlp2024/assets/slides/anlp-05-transformers.pdf
     # and Section 3 in https://arxiv.org/abs/2104.09864.
+    query = query.transpose(0, 1)
+    key = key.transpose(0, 1)
 
     # reshape xq and xk to match the complex representation
     query_real, query_imag = query.float().reshape(query.shape[:-1] + (-1, 2)).unbind(-1)
@@ -66,10 +68,20 @@ def apply_rotary_emb(
 
     # Then, combine these trigonometric values with the tensors query_real, query_imag,
     # key_real, and key_imag.
+    theta_i = torch.arange((head_dim // 2), device=device)
+    theta_i = theta ** ((-2 * theta_i) / head_dim)
+    theta_j_i = torch.arange(max_seq_len, device=device,dtype=theta_i.dtype).unsqueeze(1) @ theta_i.unsqueeze(0)  #max_len, dim / 2
+    cos_t_i = torch.cos(theta_j_i).unsqueeze(1) # max_len, 1, dim/2
+    cos_t_i = cos_t_i.unsqueeze(1)[:seqlen,:,:,:] # len_seq ，1， 1， dim/2
+    sin_t_i = torch.sin(theta_j_i).unsqueeze(1)
+    sin_t_i = sin_t_i.unsqueeze(1)[:seqlen,:,:,:]
+    _query_real = query_imag * cos_t_i - query_real * sin_t_i
+    _query_image = query_real * sin_t_i + query_imag * cos_t_i
+    _key_real = key_imag * cos_t_i - key_real * sin_t_i  #len_seq, bn, n_head, head_dim / 2
+    _key_image = key_real * sin_t_i + key_imag * cos_t_i
+    # x_Rota_even = x_even * cos - x_odd * sin
+    query_out = torch.stack([_query_real, _query_image], dim=-1).flatten(start_dim=-2).transpose(1, 0)
+    key_out = torch.stack([_key_real, _key_image], dim=-1).flatten(start_dim=-2).transpose(1, 0)
 
-    raise NotImplementedError
-
-    query_out = None
-    key_out = None
     # Return the rotary position embeddings for the query and key tensors
     return query_out, key_out

@@ -44,7 +44,8 @@ class RMSNorm(torch.nn.Module):
             torch.Tensor: The normalized tensor.
         """
         # todo
-        raise NotImplementedError
+        rms = torch.sqrt(torch.mean(x ** 2, -1, keepdim=True))
+        return x / (rms + self.eps)
 
     def forward(self, x):
         """
@@ -94,7 +95,8 @@ class Attention(nn.Module):
         attention matrix before applying it to the value tensor.
         '''
         # todo
-        raise NotImplementedError
+        Q_K = self.attn_dropout(F.softmax(query @ key.transpose(-1,-2) / math.sqrt(query.shape[-1]), dim=-1))
+        return Q_K @ value
 
     def forward(
         self,
@@ -196,8 +198,12 @@ class LlamaLayer(nn.Module):
         5) add a residual connection from the unnormalized self-attention output to the
            output of the feed-forward network
         '''
-        # todo
-        raise NotImplementedError
+        layer_norm_1 = self.attention_norm(x)
+        attn = self.attention(layer_norm_1)
+        residual = x + attn
+        layer_norm_2 = self.ffn_norm(residual)
+        ffn = self.feed_forward(layer_norm_2)
+        return residual + ffn
 
 class Llama(LlamaPreTrainedModel):
     def __init__(self, config: LlamaConfig):
@@ -274,11 +280,11 @@ class Llama(LlamaPreTrainedModel):
             logits, _ = self(idx_cond)
             logits = logits[:, -1, :] # crop to just the final time step
             # todo
-            raise NotImplementedError
+            
 
             if temperature == 0.0:
                 # select the single most likely index
-                idx_next = None
+                idx_next = torch.argmax(logits, -1, keepdim=True)
             else:
                 '''
                 Perform temperature sampling:
@@ -289,7 +295,10 @@ class Llama(LlamaPreTrainedModel):
 
                 Note that we are not using top-k sampling/nucleus sampling in this procedure.
                 '''
-                idx_next = None
+                logits = logits / temperature
+                logits = F.softmax(logits, dim=-1)
+                idx_next = torch.multinomial(logits, num_samples=1)
+            # print(idx.shape, idx_next.shape, logits.shape)
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)
 

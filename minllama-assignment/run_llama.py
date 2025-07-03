@@ -72,7 +72,7 @@ def create_data(filename, tokenizer: Tokenizer, flag: str ='train', lower: bool 
 	num_labels = {}
 	data = []
 
-	with open(filename, 'r') as fp:
+	with open(filename, 'r', encoding='utf-8') as fp:
 		for line in fp:
 			label, org_sent = line.split(' ||| ')
 			if lower:
@@ -222,7 +222,7 @@ def generate_sentence(args, prefix, outfile, max_new_tokens = 75, temperature = 
 				writer.close()
 
 def write_predictions_to_file(split: str, outfile: str, acc: float, pred: list[str], sents: list[str]):
-	with open(outfile, "w+") as f:
+	with open(outfile, "w+", encoding='utf-8') as f:
 		print(f"{split} acc :: {acc :.3f}")
 		for s, p in zip(sents, pred):
 			f.write(f"{p} ||| {s}\n")
@@ -276,7 +276,7 @@ def test(args):
 	assert args.test_out.endswith("test-finetuning-output.txt"), 'For saving finetuning results, please set the test_out argument as "<dataset>-test-finetuning-output.txt"'
 	with torch.no_grad():
 		device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
-		saved = torch.load(args.filepath)
+		saved = torch.load(args.filepath, weights_only=False)
 		config = saved['model_config']
 		model = LlamaEmbeddingClassifier(config)
 		model.load_state_dict(saved['model'])
@@ -334,7 +334,8 @@ if __name__ == "__main__":
 	if args.option == "generate":
 		# Step 1
 		# Complete this sentence to test your implementation!
-		prefix = "I have wanted to see this thriller for a while, and it didn't disappoint. Keanu Reeves, playing the hero John Wick, is"
+		# prefix = "I have wanted to see this thriller for a while, and it didn't disappoint. Keanu Reeves, playing the hero John Wick, is"
+		prefix = 'hah, a bird say to a bear'
 		generate_sentence(args, prefix, args.generated_sentence_low_temp_out, max_new_tokens=75, temperature=0.0)
 		generate_sentence(args, prefix, args.generated_sentence_high_temp_out, max_new_tokens=75, temperature=1.0)
 	elif args.option == "prompt":

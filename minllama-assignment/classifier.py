@@ -23,11 +23,12 @@ class LlamaZeroShotClassifier(torch.nn.Module):
 	def forward(self, input_ids):
 		# compute the completion probability of each label string
 		logits, _ = self.llama(input_ids)
-		log_probabilities = F.log_softmax(logits, dim=-1)
-		label_probabilities = torch.zeros((log_probabilities.shape[0], self.num_labels), device=log_probabilities.device)
+		print(logits.shape)
+		log_probabilities = F.log_softmax(logits, dim=-1)  #[bn, 1, embed_dim]
+		label_probabilities = torch.zeros((log_probabilities.shape[0], self.num_labels), device=log_probabilities.device) #[bn, num_labels]
 		for i, label_token_ids in enumerate(self.label_name_ids):
-			total_log_prob = torch.sum(log_probabilities[:, :, label_token_ids], axis=-1)
-			label_probabilities[:, i] = total_log_prob[:, 0]
+			total_log_prob = torch.sum(log_probabilities[:, :, label_token_ids], axis=-1) # for predict token ,sum the all the token probs
+			label_probabilities[:, i] = total_log_prob[:, 0] #store prob for each label
 		return label_probabilities
 
 class LlamaEmbeddingClassifier(torch.nn.Module):
@@ -55,4 +56,10 @@ class LlamaEmbeddingClassifier(torch.nn.Module):
 		3) Take the log-softmax of the logits and return log-probabilities over all classes.
 		'''
 		# todo
-		raise NotImplementedError
+		
+		_, h = self.llama(input_ids)
+		# print(output.shape) 
+		last_token = h[:, -1, :] #[bn, embed_dim]
+		logits = self.classifier_head(last_token)  #[bn, num_labels]
+		logits_prob = F.log_softmax(logits, dim = -1)
+		return logits_prob
